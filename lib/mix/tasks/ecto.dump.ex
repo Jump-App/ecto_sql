@@ -18,7 +18,8 @@ defmodule Mix.Tasks.Ecto.Dump do
     repo: [:string, :keep],
     no_compile: :boolean,
     no_deps_check: :boolean,
-    prefix: [:string, :keep]
+    prefix: [:string, :keep],
+    data: :boolean
   ]
 
   @moduledoc """
@@ -47,6 +48,12 @@ defmodule Mix.Tasks.Ecto.Dump do
     * `-q`, `--quiet` - run the command quietly
     * `--no-compile` - does not compile applications before dumping
     * `--no-deps-check` - does not check dependencies before dumping
+    * `--data` - includes row data in the dump, not just schema definitions.
+      When this flag is set, `pg_dump` runs without `--schema-only` (and `mysqldump`
+      runs without `--no-data`), so the resulting dump file contains all table data.
+      This is useful when migrations insert data that is required for the application
+      to function (e.g., audit trigger configuration rows). Migration version records
+      are included automatically via the dump tool's native output.
     * `--prefix` - prefix that will be included in the structure dump.
       Can include multiple prefixes (ex. `--prefix foo --prefix bar`) with
       PostgreSQL but not MySQL. When specified, the prefixes will have
@@ -72,6 +79,7 @@ defmodule Mix.Tasks.Ecto.Dump do
       @default_opts
       |> Keyword.merge(opts)
       |> Keyword.put(:dump_prefixes, dump_prefixes)
+      |> Keyword.put(:dump_data, Keyword.get(opts, :data, false))
 
     Enum.each(parse_repo(args), fn repo ->
       ensure_repo(repo, args)

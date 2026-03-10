@@ -159,6 +159,21 @@ defmodule Ecto.Integration.StorageTest do
     assert contents =~ ~s[INSERT INTO public."schema_migrations" (version) VALUES]
   end
 
+  test "structure dump with dump_data includes row data and skips manual version append" do
+    num = @base_migration + System.unique_integer([:positive])
+    :ok = Ecto.Migrator.up(PoolRepo, num, Migration, log: false)
+    config = Keyword.put(TestRepo.config(), :dump_data, true)
+    {:ok, path} = Postgres.structure_dump(tmp_path(), config)
+    contents = File.read!(path)
+
+    # DDL is present
+    assert contents =~ "CREATE TABLE"
+    # pg_dump includes data via COPY statements
+    assert contents =~ "COPY public.schema_migrations"
+    # The manually appended INSERT format is NOT present
+    refute contents =~ ~s[INSERT INTO public."schema_migrations" (version) VALUES (#{num})]
+  end
+
   test "when :dump_prefixes is not provided, structure is dumped for all schemas but only public schema migration records are inserted" do
     # Create the test_schema schema
     create_schema(PoolRepo.config()[:database], "test_schema")

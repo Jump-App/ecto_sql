@@ -421,16 +421,25 @@ defmodule Ecto.Adapters.MyXQL do
 
   @impl true
   def structure_dump(default, config) do
-    table = config[:migration_source] || "schema_migrations"
     path = config[:dump_path] || Path.join(default, "structure.sql")
     database = dump_database!(config[:dump_prefixes], config[:database])
 
-    with {:ok, versions} <- select_versions(database, table, config),
-         {:ok, contents} <- mysql_dump(database, config),
-         {:ok, contents} <- append_versions(table, versions, contents) do
-      File.mkdir_p!(Path.dirname(path))
-      File.write!(path, contents)
-      {:ok, path}
+    if config[:dump_data] do
+      with {:ok, contents} <- mysql_dump(database, config) do
+        File.mkdir_p!(Path.dirname(path))
+        File.write!(path, contents)
+        {:ok, path}
+      end
+    else
+      table = config[:migration_source] || "schema_migrations"
+
+      with {:ok, versions} <- select_versions(database, table, config),
+           {:ok, contents} <- mysql_dump(database, config),
+           {:ok, contents} <- append_versions(table, versions, contents) do
+        File.mkdir_p!(Path.dirname(path))
+        File.write!(path, contents)
+        {:ok, path}
+      end
     end
   end
 
@@ -452,7 +461,12 @@ defmodule Ecto.Adapters.MyXQL do
   end
 
   defp mysql_dump(database, config) do
-    args = ["--no-data", "--routines", "--no-create-db", database]
+    args =
+      if config[:dump_data] do
+        ["--routines", "--no-create-db", database]
+      else
+        ["--no-data", "--routines", "--no-create-db", database]
+      end
 
     case run_with_cmd("mysqldump", config, args) do
       {output, 0} -> {:ok, output}

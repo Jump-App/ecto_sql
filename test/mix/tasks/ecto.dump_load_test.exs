@@ -21,7 +21,10 @@ defmodule Mix.Tasks.Ecto.DumpLoadTest do
       {:ok, child_spec, %{}}
     end
 
-    def structure_dump(_, _), do: Process.get(:structure_dump) || raise("no structure_dump")
+    def structure_dump(default, config) do
+      Process.put(:structure_dump_args, {default, config})
+      Process.get(:structure_dump) || raise("no structure_dump")
+    end
     def structure_load(_, _), do: Process.get(:structure_load) || raise("no structure_load")
     def dump_cmd(_, _, _), do: Process.get(:dump_cmd) || raise("no dump_cmd")
   end
@@ -96,6 +99,20 @@ defmodule Mix.Tasks.Ecto.DumpLoadTest do
     assert_raise Mix.Error, fn ->
       Dump.run(["-r", to_string(Repo)])
     end
+  end
+
+  test "passes --data flag through config to adapter" do
+    Process.put(:structure_dump, {:ok, "foo"})
+    Dump.run(["-r", to_string(Repo), "--data"])
+    {_default, config} = Process.get(:structure_dump_args)
+    assert config[:dump_data] == true
+  end
+
+  test "passes dump_data as false by default" do
+    Process.put(:structure_dump, {:ok, "foo"})
+    Dump.run(["-r", to_string(Repo)])
+    {_default, config} = Process.get(:structure_dump_args)
+    assert config[:dump_data] == false
   end
 
   test "raises an error on structure_dump when the adapter doesn't define a storage" do
